@@ -16,7 +16,22 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+    - name: Install latest nightly
+      uses: actions-rs/toolchain@v1
+      with:
+        override: true
+        target: x86_64-pc-windows-msvc
+        toolchain: nightly
     - name: Build
-      run: cargo build --verbose
+      run: cargo +nightly build --release --verbose --target x86_64-pc-windows-msvc
     - name: Run tests
       run: cargo test --verbose
+    - name: UPX
+      uses: crazy-max/ghaction-upx@v1.4.0
+      with:
+        args: --best --lzma
+        files: target/x86_64-pc-windows-msvc/release/create-performance-task.exe
+    - name: Upload
+      uses: actions/upload-artifact@v3.0.0
+      with:
+        path: target/x86_64-pc-windows-msvc/release/create-performance-task.exe

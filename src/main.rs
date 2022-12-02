@@ -19,6 +19,53 @@ struct Stack {
     file: String,
 }
 
+#[cfg(test)]
+#[test]
+fn it_works() {
+    main();
+}
+
+fn main() {
+    let text = "5 + 10";
+    let mut stack = Stack::new(text);
+
+    parse(&mut stack);
+
+    println!("{stack:?}");
+}
+
+fn parse(stack: &mut Stack) {
+    parse_add(stack);
+}
+
+fn parse_add(stack: &mut Stack) {
+    let index = stack.ops.len();
+    parse_mul(stack);
+    stack.skip_whitespace();
+    if stack.match_char(|c| c == '+') {
+        stack.ops.insert(index, Op::Add);
+        parse_mul(stack);
+    } else if stack.match_char(|c| c == '-') {
+        stack.ops.insert(index, Op::Sub);
+        parse_mul(stack);
+    }
+}
+
+fn parse_mul(stack: &mut Stack) {
+    parse_paren(stack);
+}
+
+fn parse_paren(stack: &mut Stack) {
+    parse_num(stack);
+}
+
+fn parse_num(stack: &mut Stack) {
+    if let Ok(num) = stack.next_word().parse() {
+        stack.advance_word();
+        stack.ops.push(Op::Num(num));
+    }
+}
+
 impl Stack {
     fn new(file: impl Into<String>) -> Self {
         Self {
@@ -71,46 +118,5 @@ impl Stack {
                 break;
             }
         }
-    }
-}
-
-fn main() {
-    let text = "5 + 10";
-    let mut stack = Stack::new(text);
-
-    parse(&mut stack);
-
-    println!("{stack:?}");
-}
-
-fn parse(stack: &mut Stack) {
-    parse_add(stack);
-}
-
-fn parse_add(stack: &mut Stack) {
-    let index = stack.ops.len();
-    parse_mul(stack);
-    stack.skip_whitespace();
-    if stack.match_char(|c| c == '+') {
-        stack.ops.insert(index, Op::Add);
-        parse_mul(stack);
-    } else if stack.match_char(|c| c == '-') {
-        stack.ops.insert(index, Op::Sub);
-        parse_mul(stack);
-    }
-}
-
-fn parse_mul(stack: &mut Stack) {
-    parse_paren(stack);
-}
-
-fn parse_paren(stack: &mut Stack) {
-    parse_num(stack);
-}
-
-fn parse_num(stack: &mut Stack) {
-    if let Ok(num) = stack.next_word().parse() {
-        stack.advance_word();
-        stack.ops.push(Op::Num(num));
     }
 }

@@ -19,7 +19,13 @@ struct Stack {
 #[cfg(test)]
 #[test]
 fn it_works() {
-    main();
+    let mut stack = Stack::new("(1 + 2) * -0.5 - 3 * 4 / 5");
+
+    parse(&mut stack);
+    assert!(!stack.error);
+
+    let result = eval(&mut stack.ops).unwrap();
+    assert_eq!(result, -3.9);
 }
 
 fn main() {
@@ -29,11 +35,11 @@ fn main() {
     
     let mut stack = Stack::new(input);
 
-    if stack.file.trim().is_empty() {
-        eprintln!("ERROR | no input");
+    if stack.file.is_empty() {
+        eprintln!("-- USER ERROR -- no input");
         return;
     }
-
+    
     parse(&mut stack);
 
     if stack.error {
@@ -83,34 +89,47 @@ fn parse(stack: &mut Stack) {
 
 fn parse_add(stack: &mut Stack) {
     parse_mul(stack);
-    if stack.match_str("+") {
-        parse_mul(stack);
-        stack.ops.push(Op::Add);
-    } else if stack.match_str("-") {
-        parse_mul(stack);
-        stack.ops.push(Op::Sub);
+    loop {
+        if stack.match_str("+") {
+            parse_mul(stack);
+            stack.ops.push(Op::Add);
+        } else if stack.match_str("-") {
+            parse_mul(stack);
+            stack.ops.push(Op::Sub);
+        } else {
+            break;
+        }
     }
 }
 
 fn parse_mul(stack: &mut Stack) {
     parse_unary(stack);
-    if stack.match_str("*") {
-        parse_unary(stack);
-        stack.ops.push(Op::Mul);
-    } else if stack.match_str("/") {
-        parse_unary(stack);
-        stack.ops.push(Op::Div);
-    } else if stack.match_str("(") {
-        parse(stack);
-        if !stack.match_str(")") {
-            stack.error(stack.file_index, "expected )");
+    loop {
+        if stack.match_str("*") {
+            parse_unary(stack);
+            stack.ops.push(Op::Mul);
+        } else if stack.match_str("/") {
+            parse_unary(stack);
+            stack.ops.push(Op::Div);
         }
-        stack.ops.push(Op::Mul);
+        else if stack.match_str("(") {
+            parse(stack);
+            if !stack.match_str(")") {
+                stack.error(stack.file_index, "expected )");
+            }
+            stack.ops.push(Op::Mul);
+        } else {
+            break;
+        }
     }
 }
 
 fn parse_unary(stack: &mut Stack) {
-    if stack.match_str("-") {
+    let mut negate = false;
+    while stack.match_str("-") {
+        negate = !negate;
+    }
+    if negate {
         parse_paren(stack);
         stack.ops.push(Op::Neg);
     } else {
@@ -154,6 +173,7 @@ impl Stack {
     fn next(&self) -> &str {
         &self.file[self.file_index..]
     }
+    
     fn read_number(&mut self) -> Option<f64> {
         let start = self.file_index;
         let mut length = 0;
@@ -173,6 +193,7 @@ impl Stack {
         self.file_index = start + length;
         self.file[start..start + length].parse().ok()
     }
+    
     fn match_str(&mut self, string: &'static str) -> bool {
         if self.next().starts_with(string) {
             self.file_index += string.len();
@@ -181,14 +202,23 @@ impl Stack {
             false
         }
     }
+    
     fn error(&mut self, pos: usize, message: &'static str) {
         self.error = true;
 
-        let character = self.file[..pos].trim().chars().last();
-        if let Some(c) = character {
-            eprintln!("ERROR | {message} (just after the {c})")
-        } else {
-            eprintln!("ERROR | {message}")
+        eprintln!("-- USER ERROR --");
+
+        let file = &self.file;
+        
+        let mut error = String::new();
+        for _ in 0..pos {
+            error.push(' ');
         }
+        error.push_str("└─ ");
+        error.push_str(message);
+        error.push_str(" here");
+
+        eprintln!("{file}");
+        eprintln!("{error}");
     }
 }

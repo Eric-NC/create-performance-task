@@ -19,37 +19,37 @@ struct Stack {
 #[cfg(test)]
 #[test]
 fn it_works() {
-    let mut stack = Stack::new("(1 + 2) * -0.5 - 3 * 4 / 5");
-
-    parse(&mut stack);
-    assert!(!stack.error);
-
-    let result = eval(&mut stack.ops).unwrap();
-    assert_eq!(result, -3.9);
+    assert_eq!(Ok(-3.9), calculate("(1 + 2) * -0.5 - 3 * 4 / 5"))
 }
 
 fn main() {
     let mut input = String::new();
+    let input_clone = input.clone();
  
     std::io::stdin().read_line(&mut input).expect("failed to read input");
     
-    let mut stack = Stack::new(input);
+    if let Ok(result) = calculate(input) {
+        println!("{input_clone} = {result}");
+    }
+}
+
+fn calculate(input: impl Into<String>) -> Result<f64, ()> {
+    let mut stack = Stack::new(input.into());
 
     if stack.file.is_empty() {
         eprintln!("-- USER ERROR -- no input");
-        return;
+        return Err(());
     }
-    
+
     parse(&mut stack);
 
     if stack.error {
-        return;
+        return Err(());
     }
 
-    let result = eval(&mut stack.ops).expect("failed to calculate");
-    let text = &stack.file;
+    let result = eval(&mut stack.ops).expect("internal error");
 
-    println!("{text} = {result}")
+    Ok(result)
 }
 
 fn eval(ops: &mut Vec<Op>) -> Option<f64> {

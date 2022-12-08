@@ -24,8 +24,8 @@ jobs:
       uses: crazy-max/ghaction-upx@v1.4.0
       with:
         args: --best --lzma
-        files: target/x86_64-pc-windows-msvc/release/create-performance-task.exe
+        files: target/release/create-performance-task.exe
     - name: Upload
       uses: actions/upload-artifact@v3.0.0
       with:
-        path: target/x86_64-pc-windows-msvc/release/create-performance-task.exe
+        path: target/release/create-performance-task.exe

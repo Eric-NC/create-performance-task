@@ -23,13 +23,17 @@ fn it_works() {
 }
 
 fn main() {
-    let mut input = String::new();
-    let input_clone = input.clone();
- 
-    std::io::stdin().read_line(&mut input).expect("failed to read input");
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    let arg = if args.is_empty() {
+        let mut input = String::new();
+        std::io::stdin().read_line(&mut input).expect("failed to read input");
+        input
+    } else {
+        args.join("")
+    }
     
-    if let Ok(result) = calculate(input) {
-        println!("{input_clone} = {result}");
+    if let Ok(result) = calculate(arg) {
+        println!("= {result}");
     }
 }
 

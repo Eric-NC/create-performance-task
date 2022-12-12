@@ -30,7 +30,7 @@ fn main() {
         input
     } else {
         args.join("")
-    }
+    };
     
     if let Ok(result) = calculate(arg) {
         println!("= {result}");

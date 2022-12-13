@@ -13,42 +13,49 @@ struct Stack {
     file: String,
     file_index: usize,
     ops: Vec<Op>,
-    error: bool,
+    error: Option<String>,
 }
 
-#[cfg(test)]
 #[test]
-fn it_works() {
-    assert_eq!(Ok(-3.9), calculate("(1 + 2) * -0.5 - 3 * 4 / 5"))
+fn math_is_not_broken() {
+    assert_eq!(Ok(-3.9), calculate("-0.5(1 + 2) - 3 * 4 / 5"))
 }
 
 fn main() {
+    // Read input from the user.
+    // If command-line arguments are present, use those.
+    // If not, just take user input.
     let args: Vec<String> = std::env::args().skip(1).collect();
     let arg = if args.is_empty() {
         let mut input = String::new();
-        std::io::stdin().read_line(&mut input).expect("failed to read input");
+        std::io::stdin()
+            .read_line(&mut input)
+            .expect("failed to read input");
         input
     } else {
         args.join("")
     };
-    
-    if let Ok(result) = calculate(arg) {
-        println!("= {result}");
+
+    // Calculate, and if everything comes out ok, print the result.
+    //                if an error occurs, print a relevant message.
+    match calculate(arg) {
+        Ok(result) => println!("= {result}"),
+        Err(message) => eprintln!("{message}"),
     }
 }
 
-fn calculate(input: impl Into<String>) -> Result<f64, ()> {
+fn calculate(input: impl Into<String>) -> Result<f64, String> {
     let mut stack = Stack::new(input.into());
-
-    if stack.file.is_empty() {
-        eprintln!("-- USER ERROR -- no input");
-        return Err(());
-    }
 
     parse(&mut stack);
 
-    if stack.error {
-        return Err(());
+    if stack.file_index != stack.file.len() {
+        stack.error(stack.file_index, "unexpected character");
+    }
+
+    // If an error occurred, return early.
+    if let Some(err) = stack.error {
+        return Err(err);
     }
 
     let result = eval(&mut stack.ops).expect("internal error");
@@ -56,19 +63,25 @@ fn calculate(input: impl Into<String>) -> Result<f64, ()> {
     Ok(result)
 }
 
+// Evaluates the operand stack and gets a single number from it.
 fn eval(ops: &mut Vec<Op>) -> Option<f64> {
     let mut numbers = Vec::new();
 
     for &mut op in ops {
-        let value = eval_op(op, &mut numbers)?;
+        let value = process_operation(op, &mut numbers)?;
 
         numbers.push(value);
     }
 
+    // After processing all operations, the stack must be exhausted,
+    // with exactly one value on the number stack.
+    // Pop it and return.
     numbers.pop()
 }
 
-fn eval_op(op: Op, n: &mut Vec<f64>) -> Option<f64> {
+// Reads one operation `op` from the op stack, and executes it on the number stack `n`.
+// For example, an Add op pops two numbers, adds them, and pushes the result back to `n`.
+fn process_operation(op: Op, n: &mut Vec<f64>) -> Option<f64> {
     Some(match op {
         Op::Num(num) => num,
         Op::Neg => -n.pop()?,
@@ -87,6 +100,11 @@ fn eval_op(op: Op, n: &mut Vec<f64>) -> Option<f64> {
     })
 }
 
+// -- Recursive Descent parsing --
+// This entire section of code is an implementation of recursive descent parsing.
+// Specifically, I'm parsing operands and operations into tokens.
+// The tokens are sorted in reverse polish notation.
+// That way, with only one list (Vec<Op>), I can evaluate the calculation in one fell swoop.
 fn parse(stack: &mut Stack) {
     parse_add(stack);
 }
@@ -115,8 +133,7 @@ fn parse_mul(stack: &mut Stack) {
         } else if stack.match_str("/") {
             parse_unary(stack);
             stack.ops.push(Op::Div);
-        }
-        else if stack.match_str("(") {
+        } else if stack.match_str("(") {
             parse(stack);
             if !stack.match_str(")") {
                 stack.error(stack.file_index, "expected )");
@@ -160,24 +177,34 @@ fn parse_num(stack: &mut Stack) {
         stack.error(error_index, "expected number");
     }
 }
+// -- End Recursive Descent parsing --
 
 impl Stack {
     fn new(file_contents: impl Into<String>) -> Self {
+        // Get the file contents.
         let mut file = file_contents.into();
+
+        // Remove whitespace from file for easier processing.
         file.retain(|c| !c.is_whitespace());
 
+        // If the file is empty, that's an error! Use the error message "no user input".
+        let error = file.is_empty().then(|| String::from("no user input"));
+
+        // Construct the calculator's Stack.
         Self {
             file,
             file_index: 0,
             ops: Vec::new(),
-            error: false,
+            error,
         }
     }
 
+    // The next part of the file. (All parts that have not been processed yet.)
     fn next(&self) -> &str {
         &self.file[self.file_index..]
     }
-    
+
+    // Reads a number (like 0, 5.2, and 2.63948) from `next()`.
     fn read_number(&mut self) -> Option<f64> {
         let start = self.file_index;
         let mut length = 0;
@@ -197,7 +224,8 @@ impl Stack {
         self.file_index = start + length;
         self.file[start..start + length].parse().ok()
     }
-    
+
+    // If the specified string `string` is next up, move past it and return `true`.
     fn match_str(&mut self, string: &'static str) -> bool {
         if self.next().starts_with(string) {
             self.file_index += string.len();
@@ -206,15 +234,19 @@ impl Stack {
             false
         }
     }
-    
+
+    // The user has messed up somewhere.
     fn error(&mut self, pos: usize, message: &'static str) {
-        self.error = true;
+        // Only store one error message.
+        if self.error.is_some() {
+            return;
+        }
 
-        eprintln!("-- USER ERROR --");
-
-        let file = &self.file;
-        
-        let mut error = String::new();
+        // Format the error message.
+        let mut error = String::from("ERROR | ");
+        error.push_str(&self.file);
+        error.push('\n');
+        error.push_str("        ");
         for _ in 0..pos {
             error.push(' ');
         }
@@ -222,7 +254,7 @@ impl Stack {
         error.push_str(message);
         error.push_str(" here");
 
-        eprintln!("{file}");
-        eprintln!("{error}");
+        // Set error message here.
+        self.error = Some(error);
     }
 }

@@ -49,6 +49,7 @@ fn calculate(input: impl Into<String>) -> Result<f64, String> {
 
     parse(&mut stack);
 
+    // If we're finished parsing the expression, but not at the end of the file, then there must be some unexpected character holding us up.
     if stack.file_index != stack.file.len() {
         stack.error(stack.file_index, "unexpected character");
     }

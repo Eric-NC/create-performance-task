@@ -172,7 +172,7 @@ fn parse_paren(stack: &mut Stack) {
 
 fn parse_num(stack: &mut Stack) {
     let error_index = stack.file_index;
-    if let Some(num) = stack.read_number() {
+    if let Some(num) = stack.match_number() {
         stack.ops.push(Op::Num(num));
     } else {
         stack.error(error_index, "expected number");
@@ -206,7 +206,7 @@ impl Stack {
     }
 
     // Reads a number (like 0, 5.2, and 2.63948) from `next()`.
-    fn read_number(&mut self) -> Option<f64> {
+    fn match_number(&mut self) -> Option<f64> {
         let start = self.file_index;
         let mut length = 0;
         let mut decimal = false;
